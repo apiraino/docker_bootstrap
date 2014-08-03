@@ -85,6 +85,7 @@ def bootstrap(log_level='INFO', logentries_token=None, rsyslog_debug=False):
       rsyslog_debug: debug rsyslog loggin logally
     '''
     prepare_python_logging_config(log_level=log_level)
-    setup_rsyslog_logging(log_level=log_level, rsyslog_debug=rsyslog_debug)
+    setup_rsyslog_logging(log_level=log_level, rsyslog_debug=rsyslog_debug,
+                          logentries_token=logentries_token)
     setup_logging()
     become_circusd()
