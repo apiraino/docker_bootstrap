@@ -1,0 +1,19 @@
+version: 1
+disable_existing_loggers: False
+formatters:
+  logentries:
+    format: '[%(levelname)s %(name)s %(module)s: %(processName)s] %(message)s'
+handlers:
+  syslog:
+    level: {{ log_level }}
+    formatter: logentries
+    class: logging.handlers.SysLogHandler
+    address: {{ syslog_socket }}
+    facility: local7
+loggers:
+  circus:
+    level: {{ log_level }}
+root:
+  handlers:
+    - syslog
+  level: {{ log_level }}

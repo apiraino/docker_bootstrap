@@ -1,0 +1,29 @@
+module(load="imuxsock")
+module(load="imfile" PollingInterval="2")
+
+input(type="imuxsock"
+      Socket="{{ syslog_socket }}")
+
+input(type="imfile"
+      File="/err.log"
+      Tag="stderr:"
+      StateFile="err-file"
+      Severity="info"
+      Facility="local7")
+
+input(type="imfile"
+      File="/out.log"
+      Tag="stdout:"
+      StateFile="out-file"
+      Severity="info"
+      Facility="local7")
+
+template(name="defaultFormat"
+         type="string"
+         string="{{ logentries_token }} %HOSTNAME% %syslogtag%%msg%\n")
+
+*.* action(template="defaultFormat" type="omfwd" Target="data.logentries.com" Port="10000" Protocol="tcp")
+
+{% if rsyslog_debug -%}
+*.* action(type="omfile" File="/rsyslog.log")
+{% endif -%}
