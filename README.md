@@ -2,6 +2,11 @@
 
 Helps setting up logging and rsyslogd.
 
+Rsyslog will be listening on the standard `/dev/log` socket and forwarding
+everything to logentries.
+
+The `bootstrap()` turns the caller process into circusd and thus the function
+never returns.
 
 ## Usage:
 
@@ -19,3 +24,45 @@ Helps setting up logging and rsyslogd.
 5. in your python code call: `docker_bootstrap.setup_logging()` and subsequently configure logging with `disable_existing_loggers=False`
 
 The bootstrapper will spawn rsyslogd and circus for you.
+
+
+## Sample circusd config
+
+```
+[watcher:web]
+cmd = uwsgi
+args = uwsgi.ini
+copy_env = True
+use_sockets = True
+send_hup = True
+stop_signal = QUIT
+
+stderr_stream.class = FileStream
+stderr_stream.filename = /tmp/err.log
+stderr_stream.max_bytes = 1000000
+stderr_stream.backup_count = 4
+
+stdout_stream.class = FileStream
+stdout_stream.filename = /tmp/out.log
+stdout_stream.max_bytes = 1000000
+stdout_stream.backup_count = 4
+
+[circus]
+logoutput = syslog:///dev/log?local7
+```
+
+## Sample uwsgi config
+
+```
+[uwsgi]
+http-socket = :8080
+master = true
+processes = 4
+module = my_proj.wsgi:application
+logger = syslog
+```
+
+## Testing locally
+
+To use local rsyslog `bootstrap(rsyslog=False)`; it will prevent spawning of a
+new rsyslog.

@@ -8,11 +8,10 @@ import os
 import time
 import sys
 import subprocess
-import socket
 
 from jinja2 import Environment, FileSystemLoader
 
-SYSLOG_SOCKET = '/log.sock'
+SYSLOG_SOCKET = '/dev/log'
 
 TEMPLATE_DIR = os.path.join(os.path.os.path.dirname(__file__), 'templates')
 
@@ -29,12 +28,19 @@ def prepare_python_logging_config(log_level='INFO'):
         f.write(contents)
 
 
+def logger_excepthook(exc_type, exc_value, exc_traceback):
+    import logging
+    logging.fatal('Unhandled exception',
+                  exc_info=(exc_type, exc_value, exc_traceback))
+
+
 def setup_logging():
     import logging.config
     import yaml
     with open('logging.conf', 'r') as f:
         logging_config = yaml.load(f)
     logging.config.dictConfig(logging_config)
+    sys.excepthook = logger_excepthook
 
 
 def setup_rsyslog_logging(log_level, logentries_token=None,
@@ -53,21 +59,28 @@ def setup_rsyslog_logging(log_level, logentries_token=None,
                                 '-f', '/rsyslog.conf'],
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
+    print('Spawning rsyslog...')
+
+    stdout, stderr = rsyslog.communicate()
 
     def print_rsyslog_streams():
-        stderr = rsyslog.stderr.read()
         print('Rsyslogd stderr: {}'.format(stderr)) if stderr else None
-        stdout = rsyslog.stdout.read()
         print('Rsyslogd stdout: {}'.format(stdout)) if stdout else None
 
+    if rsyslog.returncode:
+        print('Error spawning rsyslogd. Code: {}'.format(rsyslog.returncode))
+        print_rsyslog_streams()
+        sys.exit(1)
+
     for i in range(10):
-        if os.path.exists('/log.sock'):
+        if os.path.exists(SYSLOG_SOCKET):
             break
         time.sleep(.2)
     else:
-        print('Error spawning rsyslogd')
+        print('Could not find rsyslog socket {}'.format(SYSLOG_SOCKET))
         print_rsyslog_streams()
         sys.exit(1)
+    print('Rsyslogd successfully started.')
     print_rsyslog_streams()
 
 
@@ -76,7 +89,8 @@ def become_circusd():
     os.execlp('circusd', 'circusd', 'circus.ini')
 
 
-def bootstrap(log_level='INFO', logentries_token=None, rsyslog_debug=False):
+def bootstrap(log_level='INFO', logentries_token=None, rsyslog_debug=False,
+              rsyslog=True, logging=True, circusd=True):
     '''Setup python logging, rsyslog and spawn circusd.
 
     Args:
@@ -84,8 +98,10 @@ def bootstrap(log_level='INFO', logentries_token=None, rsyslog_debug=False):
       logentries_token: token for logentries logging
       rsyslog_debug: debug rsyslog loggin logally
     '''
-    prepare_python_logging_config(log_level=log_level)
-    setup_rsyslog_logging(log_level=log_level, rsyslog_debug=rsyslog_debug,
-                          logentries_token=logentries_token)
-    setup_logging()
-    become_circusd()
+    if logging:
+        prepare_python_logging_config(log_level=log_level)
+    if rsyslog:
+        setup_rsyslog_logging(log_level=log_level, rsyslog_debug=rsyslog_debug,
+                              logentries_token=logentries_token)
+    if circusd:
+        become_circusd()

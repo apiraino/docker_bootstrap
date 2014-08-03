@@ -1,9 +1,6 @@
 module(load="imuxsock")
 module(load="imfile" PollingInterval="2")
 
-input(type="imuxsock"
-      Socket="{{ syslog_socket }}")
-
 input(type="imfile"
       File="/err.log"
       Tag="stderr:"
