@@ -7,7 +7,7 @@ Helps setting up logging and rsyslogd.
 
 
 ```
-import docker_bootstrap
+from docker_bootstrap import boostrap
 
-docker_bootstrap.bootstrap(log_level='WARNING', logging_template=''
-)
+bootstrap(log_level='WARNING', logentries_token='adsf', rsyslog_debug=False)
+```
