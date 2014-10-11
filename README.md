@@ -38,12 +38,12 @@ send_hup = True
 stop_signal = QUIT
 
 stderr_stream.class = FileStream
-stderr_stream.filename = /tmp/err.log
+stderr_stream.filename = /err.log
 stderr_stream.max_bytes = 1000000
 stderr_stream.backup_count = 4
 
 stdout_stream.class = FileStream
-stdout_stream.filename = /tmp/out.log
+stdout_stream.filename = /out.log
 stdout_stream.max_bytes = 1000000
 stdout_stream.backup_count = 4
 
