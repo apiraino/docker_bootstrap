@@ -64,5 +64,7 @@ logger = syslog
 
 ## Testing locally
 
-To use local rsyslog `bootstrap(rsyslog=False)`; it will prevent spawning of a
-new rsyslog.
+To log to the console instead of rsyslog, call
+`bootstrap(rsyslog=False, console=True, circus=False)`; it will also prevent spawning of rsyslogd and circus.
+
+Usually `bootstrap()` should be called by the testcase setup logic.
