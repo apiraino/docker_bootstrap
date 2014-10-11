@@ -38,12 +38,12 @@ send_hup = True
 stop_signal = QUIT
 
 stderr_stream.class = FileStream
-stderr_stream.filename = /tmp/err.log
+stderr_stream.filename = /err.log
 stderr_stream.max_bytes = 1000000
 stderr_stream.backup_count = 4
 
 stdout_stream.class = FileStream
-stdout_stream.filename = /tmp/out.log
+stdout_stream.filename = /out.log
 stdout_stream.max_bytes = 1000000
 stdout_stream.backup_count = 4
 
@@ -64,5 +64,7 @@ logger = syslog
 
 ## Testing locally
 
-To use local rsyslog `bootstrap(rsyslog=False)`; it will prevent spawning of a
-new rsyslog.
+To log to the console instead of rsyslog, call
+`bootstrap(rsyslog=False, console=True, circus=False)`; it will also prevent spawning of rsyslogd and circus.
+
+Usually `bootstrap()` should be called by the testcase setup logic.

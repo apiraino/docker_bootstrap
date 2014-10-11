@@ -8,6 +8,7 @@ import os
 import time
 import sys
 import subprocess
+from six import StringIO
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -18,14 +19,22 @@ TEMPLATE_DIR = os.path.join(os.path.os.path.dirname(__file__), 'templates')
 __all__ = ['setup_logging', 'bootstrap']
 
 
-def prepare_python_logging_config(log_level='INFO'):
-    # create and write logging config file
+# These are also dupicated in templates
+LOGGING_CONFIG_PATH = 'logging.conf'
+RSYSLOG_CONFIG_PATH = '/rsyslog.conf'
+RSYSLOG_PID_PATH = '/rsyslog.pid'
+
+
+def get_logging_config(log_level=None, log_rsyslog=None, log_console=None):
+    '''Generate logging config dict from template.'''
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
     template = env.get_template('logging.conf.jinja2')
-    contents = template.render(log_level=log_level, syslog_socket=SYSLOG_SOCKET)
-
-    with open('logging.conf', 'w') as f:
-        f.write(contents)
+    config = template.render(
+        log_level=log_level or os.environ.get('LOG_LEVEL') or 'INFO',
+        log_rsyslog=log_rsyslog if log_rsyslog is not None else True,
+        log_console=log_console if log_console is not None else False,
+        syslog_socket=SYSLOG_SOCKET)
+    return config
 
 
 def logger_excepthook(exc_type, exc_value, exc_traceback):
@@ -34,29 +43,50 @@ def logger_excepthook(exc_type, exc_value, exc_traceback):
                   exc_info=(exc_type, exc_value, exc_traceback))
 
 
-def setup_logging():
+def setup_logging(log_level=None, log_console=None, log_rsyslog=None):
+    '''Configure the python logger from the python code.
+
+    Use the `logging.conf` file created by `bootstrap`.
+
+    Can also work when `bootstrap` hasn't been called yet (during tests).
+    '''
     import logging.config
     import yaml
-    with open('logging.conf', 'r') as f:
-        logging_config = yaml.load(f)
+    if os.path.exists(LOGGING_CONFIG_PATH):
+        with open(LOGGING_CONFIG_PATH, 'r') as f:
+            logging_config = yaml.load(f)
+    else:
+        # Useful when testing, and we don't call bootstrap()
+        logging.warning('no logging configuration found')
+        logging_config = yaml.load(
+            StringIO(
+                get_logging_config(log_level=log_level,
+                                   log_console=log_console,
+                                   log_rsyslog=log_rsyslog)
+            )
+        )
     logging.config.dictConfig(logging_config)
     sys.excepthook = logger_excepthook
 
 
-def setup_rsyslog_logging(log_level, logentries_token=None,
-                          rsyslog_debug=False):
+def setup_rsyslog_logging(log_level=None, logentries_token=None,
+                          rsyslog_debug=None):
+    '''Configures and spawns rsyslog. '''
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
     template = env.get_template('rsyslog.conf.jinja2')
-    contents = template.render(logentries_token=logentries_token,
-                               syslog_socket=SYSLOG_SOCKET,
-                               rsyslog_debug=rsyslog_debug)
+    contents = template.render(
+        logentries_token=logentries_token,
+        syslog_socket=SYSLOG_SOCKET,
+        rsyslog_debug=(rsyslog_debug if rsyslog_debug is not None
+                       else os.environ.get('RSYSLOG_DEBUG', False))
+    )
 
-    with open('/rsyslog.conf', 'w') as f:
+    with open(RSYSLOG_CONFIG_PATH, 'w') as f:
         f.write(contents)
 
     # spawn rsyslog
-    rsyslog = subprocess.Popen(['rsyslogd', '-i', '/rsyslog.pid',
-                                '-f', '/rsyslog.conf'],
+    rsyslog = subprocess.Popen(['rsyslogd', '-i', RSYSLOG_PID_PATH,
+                                '-f', RSYSLOG_CONFIG_PATH],
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
     print('Spawning rsyslog...')
@@ -89,19 +119,26 @@ def become_circusd():
     os.execlp('circusd', 'circusd', 'circus.ini')
 
 
-def bootstrap(log_level='INFO', logentries_token=None, rsyslog_debug=False,
-              rsyslog=True, logging=True, circusd=True):
+def bootstrap(log_level=None, logentries_token=None, rsyslog_debug=False,
+              console=False, rsyslog=True, circusd=True):
     '''Setup python logging, rsyslog and spawn circusd.
 
     Args:
-      log_level (default to `INFO`)
+      log_level: if not provided `LOG_LEVEL` env var is used
       logentries_token: token for logentries logging
-      rsyslog_debug: debug rsyslog loggin logally
+      rsyslog_debug: make rsyslog log in a local file too. Can also be
+        controlled through `RSYSLOG_DEBUG` env var
+      rsyslog: configure and log to rsyslog
+      console: log to console (default False)
     '''
-    if logging:
-        prepare_python_logging_config(log_level=log_level)
+    config = get_logging_config(log_level=log_level,
+                                log_rsyslog=rsyslog,
+                                log_console=console)
+    with open(LOGGING_CONFIG_PATH, 'w') as f:
+        f.write(config)
     if rsyslog:
-        setup_rsyslog_logging(log_level=log_level, rsyslog_debug=rsyslog_debug,
+        setup_rsyslog_logging(log_level=log_level,
+                              rsyslog_debug=rsyslog_debug,
                               logentries_token=logentries_token)
     if circusd:
         become_circusd()
