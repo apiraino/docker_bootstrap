@@ -68,3 +68,7 @@ To log to the console instead of rsyslog, call
 `bootstrap(rsyslog=False, console=True, circus=False)`; it will also prevent spawning of rsyslogd and circus.
 
 Usually `bootstrap()` should be called by the testcase setup logic.
+
+Optionally pass the path to Rsyslogd config and PID files (rsyslogd_config_path and rsyslogd_pid_path): this help avoiding conflicts with the rsyslogd service running on the host machine.
+
+Caveat: if rsyslogd is configured to rotate logs it is adviced to use version >= 8 from the rsyslogd repository (http://www.rsyslog.com/ubuntu-repository) or unexpected behaviour may occur.

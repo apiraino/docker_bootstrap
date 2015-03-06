@@ -70,8 +70,11 @@ def setup_logging(log_level=None, log_console=None, log_rsyslog=None):
 
 
 def setup_rsyslog_logging(log_level=None, logentries_token=None,
-                          rsyslog_debug=None):
+                          rsyslog_debug=None, rsyslog_config_path=None,
+                          rsyslog_pid_path=None):
     '''Configures and spawns rsyslog. '''
+    _rsyslog_config_path = rsyslog_config_path or RSYSLOG_CONFIG_PATH
+    _rsyslog_pid_path = rsyslog_pid_path or RSYSLOG_PID_PATH
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
     template = env.get_template('rsyslog.conf.jinja2')
     contents = template.render(
@@ -81,12 +84,12 @@ def setup_rsyslog_logging(log_level=None, logentries_token=None,
                        else os.environ.get('RSYSLOG_DEBUG', False))
     )
 
-    with open(RSYSLOG_CONFIG_PATH, 'w') as f:
+    with open(_rsyslog_config_path, 'w') as f:
         f.write(contents)
 
     # spawn rsyslog
-    rsyslog = subprocess.Popen(['rsyslogd', '-i', RSYSLOG_PID_PATH,
-                                '-f', RSYSLOG_CONFIG_PATH],
+    rsyslog = subprocess.Popen(['rsyslogd', '-i', _rsyslog_pid_path,
+                                '-f', _rsyslog_config_path],
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
     print('Spawning rsyslog...')
